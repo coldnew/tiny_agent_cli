@@ -1,4 +1,27 @@
-llm:
-  api_key: "sk-..."          # or set OPENAI_API_KEY environment variable
-  model: "gpt-4o-mini"
-  base_url: "https://api.openai.com/v1"
+# Example: OpenAI
+# llm:
+#   provider: "openai"
+#   api_key: "sk-..."
+#   model: "gpt-4o-mini"
+#   # base_url: "https://api.openai.com/v1"
+
+# Example: OpenRouter
+# llm:
+#   provider: "openrouter"
+#   api_key: "sk-or-v1-..."
+#   model: "openai/gpt-4o-mini"
+#   # base_url: "https://openrouter.ai/api/v1"
+
+# Example: Ollama (local)
+# llm:
+#   provider: "ollama"
+#   api_key: ""              # not required for local Ollama
+#   model: "llama3.1:8b"
+#   base_url: "http://localhost:11434/v1"
+
+# Example: LM Studio (local)
+# llm:
+#   provider: "lmstudio"
+#   api_key: "lm-studio"     # placeholder; some clients require a non-empty key
+#   model: "local-model"
+#   base_url: "http://localhost:1234/v1"

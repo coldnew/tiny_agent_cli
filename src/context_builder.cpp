@@ -21,27 +21,47 @@ std::string ContextBuilder::GetIdentityBlock() const {
 
   const std::string workspace = fs::absolute(workspace_dir_).generic_string();
 
-  std::ostringstream out;
-  out << "You are tinybot, a helpful AI assistant running as a CLI agent.\n\n";
-  out << "## Current Time\n" << time_buf << " (" << tz_buf << ")\n\n";
-  out << "## Runtime\nLinux " << sizeof(void*) * 8 << "-bit, C++ CLI agent\n\n";
-  out << "## Workspace\n";
-  out << "Your workspace is at: " << workspace << "\n";
-  out << "- Long-term memory: " << workspace << "/memory/MEMORY.md\n";
-  out << "- Output directory: " << workspace << "/outputs/\n";
-  out << "- Custom skills:    " << workspace << "/skills/{skill-name}/SKILL.md\n\n";
-  out << "> **IMPORTANT:** All generated files (documents, code, data, etc.) MUST be saved under `"
-      << workspace << "/outputs/`. Do NOT write files to the workspace root or other locations.\n\n";
-  out << "## Tool-Use Guidelines\n";
-  out << "- You may briefly state intent before calling a tool, but never predict its output.\n";
-  out << "- Never assume a file or directory exists — verify first.\n";
-  out << "- Read a file before editing it; re-read after writing if accuracy matters.\n";
-  out << "- Analyze errors before trying a different approach.\n\n";
-  out << "## Memory\n";
-  out << "- Save important facts: write to " << workspace << "/memory/MEMORY.md\n";
-  out << "- Recall past events: use `exec` to grep " << workspace << "/memory/HISTORY.md\n";
+  std::string prompt = R"(You are tinybot, a helpful AI assistant running as a CLI agent.
 
-  return out.str();
+## Current Time
+{TIME} ({TZ})
+
+## Runtime
+Linux {BITS}-bit, C++ CLI agent
+
+## Workspace
+Your workspace is at: {WORKSPACE}
+- Long-term memory: {WORKSPACE}/memory/MEMORY.md
+- Output directory: {WORKSPACE}/outputs/
+- Custom skills:    {WORKSPACE}/skills/{skill-name}/SKILL.md
+
+> **IMPORTANT:** All generated files (documents, code, data, etc.) MUST be saved under `{WORKSPACE}/outputs/`. Do NOT write files to the workspace root or other locations.
+
+## Tool-Use Guidelines
+- You may briefly state intent before calling a tool, but never predict its output.
+- Never assume a file or directory exists — verify first.
+- Read a file before editing it; re-read after writing if accuracy matters.
+- Analyze errors before trying a different approach.
+
+## Memory
+- Save important facts: write to {WORKSPACE}/memory/MEMORY.md
+- Recall past events: use `exec` to grep {WORKSPACE}/memory/HISTORY.md
+)";
+
+  const auto replace_all = [](std::string* s, const std::string& from, const std::string& to) {
+    size_t pos = 0;
+    while ((pos = s->find(from, pos)) != std::string::npos) {
+      s->replace(pos, from.size(), to);
+      pos += to.size();
+    }
+  };
+
+  replace_all(&prompt, "{TIME}", time_buf);
+  replace_all(&prompt, "{TZ}", tz_buf);
+  replace_all(&prompt, "{BITS}", std::to_string(sizeof(void*) * 8));
+  replace_all(&prompt, "{WORKSPACE}", workspace);
+
+  return prompt;
 }
 
 std::string ContextBuilder::BuildSystemPrompt() const {

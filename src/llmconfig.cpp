@@ -26,6 +26,34 @@ LlmConfig ResolveLlmConfig(const YAML::Node& root) {
     if (llm["base_url"]) cfg.base_url = llm["base_url"].as<std::string>();
   }
 
+  if (root["mcp"] && root["mcp"]["servers"] && root["mcp"]["servers"].IsSequence()) {
+    for (const auto& node : root["mcp"]["servers"]) {
+      if (!node.IsMap()) continue;
+
+      McpServerConfig server;
+      if (node["name"]) server.name = node["name"].as<std::string>();
+      if (node["command"]) server.command = node["command"].as<std::string>();
+      if (node["cwd"]) server.cwd = node["cwd"].as<std::string>();
+      if (node["enabled"]) server.enabled = node["enabled"].as<bool>();
+
+      if (node["args"] && node["args"].IsSequence()) {
+        for (const auto& arg : node["args"]) {
+          if (arg.IsScalar()) server.args.push_back(arg.as<std::string>());
+        }
+      }
+
+      if (node["env"] && node["env"].IsMap()) {
+        for (const auto it : node["env"]) {
+          if (it.first.IsScalar() && it.second.IsScalar())
+            server.env[it.first.as<std::string>()] = it.second.as<std::string>();
+        }
+      }
+
+      if (server.name.empty() || server.command.empty()) continue;
+      cfg.mcp_servers.push_back(std::move(server));
+    }
+  }
+
   // Apply provider default endpoint only when base_url wasn't explicitly overridden.
   if (cfg.provider == "openrouter" && cfg.base_url == "https://api.openai.com/v1")
     cfg.base_url = "https://openrouter.ai/api/v1";

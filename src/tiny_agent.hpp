@@ -18,7 +18,8 @@ class TinyAgent {
   TinyAgent(const std::string& workspace_dir,
             const std::string& api_key,
             const std::string& base_url,
-            const std::string& model);
+            const std::string& model,
+            const std::vector<McpServerConfig>& mcp_servers = {});
 
   // Run one chat turn, calling emit_event for each streaming event.
   void ChatStream(const std::string& user_message,
@@ -27,6 +28,7 @@ class TinyAgent {
 
   nlohmann::json GetSkillsSummary();
   nlohmann::json GetToolsSummary() const;
+  nlohmann::json GetMcpStatus() const;
   nlohmann::json GetTokens() const;
   nlohmann::json GetAllMessages() const;
   std::string    GetLongTermMemory() const;

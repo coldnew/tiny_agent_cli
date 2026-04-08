@@ -5,11 +5,12 @@
 TinyAgent::TinyAgent(const std::string& workspace_dir,
                      const std::string& api_key,
                      const std::string& base_url,
-                     const std::string& model)
+                     const std::string& model,
+                     const std::vector<McpServerConfig>& mcp_servers)
     : workspace_dir_(workspace_dir),
       memory_(workspace_dir),
       skills_(workspace_dir),
-      tools_(),
+      tools_(mcp_servers),
       context_(&memory_, &skills_, workspace_dir),
       client_(api_key, base_url),
       loop_(&client_, &tools_, model) {
@@ -49,6 +50,7 @@ nlohmann::json TinyAgent::GetSkillsSummary() {
 }
 
 nlohmann::json TinyAgent::GetToolsSummary() const  { return tools_.GetToolsSummary(); }
+nlohmann::json TinyAgent::GetMcpStatus() const     { return tools_.GetMcpStatus(); }
 nlohmann::json TinyAgent::GetTokens() const        { return memory_.GetTokens(); }
 nlohmann::json TinyAgent::GetAllMessages() const   { return memory_.AllMessages(); }
 std::string    TinyAgent::GetLongTermMemory() const { return memory_.GetLongTermMemory(); }

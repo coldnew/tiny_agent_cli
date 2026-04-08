@@ -15,6 +15,7 @@ add_executable(tiny_agent_cli
   src/context_builder.cpp
   src/tools.cpp
   src/llmconfig.cpp
+  src/mcp_client.cpp
   src/openai_stream_client.cpp
   src/agent_loop.cpp
   src/tiny_agent.cpp

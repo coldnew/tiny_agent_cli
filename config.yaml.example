@@ -25,3 +25,17 @@
 #   api_key: "lm-studio"     # placeholder; some clients require a non-empty key
 #   model: "local-model"
 #   base_url: "http://localhost:1234/v1"
+
+# Example: MCP servers (optional)
+# mcp:
+#   servers:
+#     - name: "filesystem"
+#       command: "npx"
+#       args:
+#         - "-y"
+#         - "@modelcontextprotocol/server-filesystem"
+#         - "./workspace"
+#       # cwd: "."
+#       # enabled: true
+#       # env:
+#       #   SOME_API_KEY: "..."

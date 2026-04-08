@@ -1,5 +1,6 @@
 #include "tools.hpp"
 
+#include <algorithm>
 #include <cctype>
 #include <cstdio>
 #include <filesystem>
@@ -33,6 +34,21 @@ std::string ShellQuote(const std::string& s) {
     else           out.push_back(c);
   }
   out += "'";
+  return out;
+}
+
+std::string SanitizeToolName(const std::string& raw) {
+  std::string out;
+  out.reserve(raw.size());
+  for (char c : raw) {
+    const unsigned char u = static_cast<unsigned char>(c);
+    if (std::isalnum(u) || c == '_') out.push_back(c);
+    else out.push_back('_');
+  }
+  while (!out.empty() && out.back() == '_') out.pop_back();
+  if (out.empty()) out = "tool";
+  if (std::isdigit(static_cast<unsigned char>(out[0])))
+    out = "t_" + out;
   return out;
 }
 
@@ -208,6 +224,29 @@ class ShellTool : public BaseTool {
   std::vector<std::string> deny_patterns_;
 };
 
+class McpTool : public BaseTool {
+ public:
+  McpTool(std::string local_name,
+          std::string description,
+          nlohmann::json parameters,
+          McpClient* client,
+          std::string remote_tool_name)
+      : BaseTool(std::move(local_name), std::move(description), std::move(parameters)),
+        client_(client),
+        remote_tool_name_(std::move(remote_tool_name)) {}
+
+  std::string Execute(const nlohmann::json& kwargs) override {
+    std::string err;
+    const std::string result = client_->CallTool(remote_tool_name_, kwargs, &err);
+    if (!err.empty()) return "Error: " + err;
+    return result;
+  }
+
+ private:
+  McpClient* client_;
+  std::string remote_tool_name_;
+};
+
 }  // namespace
 
 // ---------------------------------------------------------------------------
@@ -219,15 +258,88 @@ nlohmann::json BaseTool::ToOpenAIFunction() const {
   };
 }
 
-ToolRegistry::ToolRegistry() {
+ToolRegistry::ToolRegistry(const std::vector<McpServerConfig>& mcp_servers) {
   Register(std::make_unique<ReadFileTool>());
   Register(std::make_unique<WriteFileTool>());
   Register(std::make_unique<EditFileTool>());
   Register(std::make_unique<ShellTool>(60));
+  RegisterMcpTools(mcp_servers);
 }
 
 void ToolRegistry::Register(std::unique_ptr<BaseTool> tool) {
   tools_[tool->Name()] = std::move(tool);
+}
+
+void ToolRegistry::RegisterMcpTools(const std::vector<McpServerConfig>& mcp_servers) {
+  for (const auto& server : mcp_servers) {
+    nlohmann::json server_status = {
+        {"name", server.name},
+        {"enabled", server.enabled},
+        {"connected", false},
+        {"tools", nlohmann::json::array()},
+    };
+    if (!server.command.empty()) server_status["command"] = server.command;
+
+    if (!server.enabled) {
+      server_status["error"] = "disabled";
+      mcp_status_.push_back(server_status);
+      continue;
+    }
+
+    auto client = std::make_unique<McpClient>(
+        server.name, server.command, server.args, server.cwd, server.env);
+
+    std::string err;
+    if (!client->Connect(&err)) {
+      server_status["error"] = err;
+      mcp_status_.push_back(server_status);
+      continue;
+    }
+    server_status["connected"] = true;
+
+    const std::vector<nlohmann::json> tools = client->ListTools(&err);
+    if (!err.empty()) {
+      server_status["error"] = err;
+      mcp_status_.push_back(server_status);
+      continue;
+    }
+
+    McpClient* raw_client = client.get();
+    mcp_clients_.push_back(std::move(client));
+
+    for (const auto& t : tools) {
+      if (!t.is_object() || !t.contains("name") || !t["name"].is_string()) continue;
+
+      const std::string remote_name = t["name"].get<std::string>();
+      const std::string local_name =
+          "mcp_" + SanitizeToolName(server.name) + "__" + SanitizeToolName(remote_name);
+
+      nlohmann::json params = {
+          {"type", "object"},
+          {"properties", nlohmann::json::object()},
+      };
+      if (t.contains("inputSchema") && t["inputSchema"].is_object())
+        params = t["inputSchema"];
+
+      std::string description = "MCP tool from server '" + server.name + "'";
+      if (t.contains("description") && t["description"].is_string())
+        description = t["description"].get<std::string>();
+
+      Register(std::make_unique<McpTool>(
+          local_name,
+          description,
+          params,
+          raw_client,
+          remote_name));
+
+      server_status["tools"].push_back({
+          {"remote_name", remote_name},
+          {"local_name", local_name},
+      });
+    }
+
+    mcp_status_.push_back(server_status);
+  }
 }
 
 nlohmann::json ToolRegistry::GetDefinitions() const {
@@ -255,4 +367,8 @@ nlohmann::json ToolRegistry::GetToolsSummary() const {
   for (const auto& kv : tools_)
     out.push_back({{"name", kv.second->Name()}, {"description", kv.second->Description()}});
   return out;
+}
+
+nlohmann::json ToolRegistry::GetMcpStatus() const {
+  return mcp_status_;
 }

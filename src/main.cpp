@@ -41,6 +41,7 @@ static void PrintHelp() {
       << "  /help     Show this help\n"
       << "  /clear    Clear conversation history\n"
       << "  /status   Show loaded skills and tools\n"
+      << "  /mcp      Show MCP server and tool status\n"
       << "  /memory   Show long-term memory\n"
       << "  /tokens   Show cumulative token usage\n"
       << "  /history  Show conversation history\n"
@@ -69,6 +70,39 @@ static void PrintStatus(TinyAgent& agent) {
   for (const auto& t : tools) {
     std::cout << "  " << color::wrap(color::green, t.value("name", "?"))
               << " — " << t.value("description", "") << "\n";
+  }
+}
+
+static void PrintMcp(TinyAgent& agent) {
+  const auto mcp = agent.GetMcpStatus();
+  std::cout << color::wrap(color::bold, "MCP:\n");
+  if (!mcp.is_array() || mcp.empty()) {
+    std::cout << "  (no MCP servers configured)\n";
+    return;
+  }
+
+  for (const auto& s : mcp) {
+    const std::string name = s.value("name", "?");
+    const bool enabled = s.value("enabled", true);
+    const bool connected = s.value("connected", false);
+    const std::string error = s.value("error", "");
+
+    std::string state;
+    if (!enabled) state = "disabled";
+    else if (connected) state = "connected";
+    else state = "failed";
+
+    std::cout << "  " << color::wrap(color::cyan, name)
+              << " [" << state << "]";
+    if (!error.empty()) std::cout << " - " << error;
+    std::cout << "\n";
+
+    if (s.contains("tools") && s["tools"].is_array() && !s["tools"].empty()) {
+      for (const auto& t : s["tools"]) {
+        std::cout << "    - " << color::wrap(color::green, t.value("local_name", "?"))
+                  << " <- " << t.value("remote_name", "?") << "\n";
+      }
+    }
   }
 }
 
@@ -183,7 +217,8 @@ int main(int argc, char* argv[]) {
   // ---- Agent -------------------------------------------------------------
   TinyAgent* agent = nullptr;
   try {
-    agent = new TinyAgent(workspace_path, llm_cfg.api_key, llm_cfg.base_url, llm_cfg.model);
+    agent = new TinyAgent(
+        workspace_path, llm_cfg.api_key, llm_cfg.base_url, llm_cfg.model, llm_cfg.mcp_servers);
   } catch (const std::exception& e) {
     std::cerr << color::wrap(color::red, "Error: ") << e.what() << "\n";
     curl_global_cleanup();
@@ -236,6 +271,7 @@ int main(int argc, char* argv[]) {
     if (line == "/quit" || line == "/exit" || line == "/q") break;
     if (line == "/help"    || line == "/?")    { PrintHelp();          continue; }
     if (line == "/status")                     { PrintStatus(*agent);  continue; }
+    if (line == "/mcp")                        { PrintMcp(*agent);     continue; }
     if (line == "/memory")                     { PrintMemory(*agent);  continue; }
     if (line == "/tokens")                     { PrintTokens(*agent);  continue; }
     if (line == "/history")                    { PrintHistory(*agent); continue; }

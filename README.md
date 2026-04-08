@@ -6,6 +6,7 @@ A minimal AI agent that runs entirely in your terminal. No HTTP server, no web U
 
 - Streaming responses printed to stdout as they arrive
 - Tool use: read/write/edit files and run shell commands
+- MCP tool support via stdio servers (tools are auto-registered at startup)
 - Persistent conversation history and long-term memory (markdown)
 - Skill system: drop a `SKILL.md` into `workspace/skills/<name>/` to extend the agent
 - One-shot mode for scripting
@@ -55,6 +56,16 @@ llm:
   api_key: "sk-..."    # optional for local providers
   model: "gpt-4o-mini"
   # base_url: "https://api.openai.com/v1" # optional; defaults by provider
+
+mcp:
+  servers:
+    - name: "filesystem"
+      command: "npx"
+      args: ["-y", "@modelcontextprotocol/server-filesystem", "./workspace"]
+      # cwd: "."
+      # enabled: true
+      # env:
+      #   SOME_API_KEY: "..."
 ```
 
 Alternatively, set `OPENAI_API_KEY` (default/OpenAI-compatible) or `OPENROUTER_API_KEY` (OpenRouter) — no config file needed.
@@ -69,6 +80,14 @@ Provider defaults:
 - `lmstudio` -> set `base_url: "http://localhost:1234/v1"` in config
 
 Any OpenAI-compatible endpoint still works by overriding `base_url`. `provider` mainly controls default URL and API key env var selection (`openrouter` checks `OPENROUTER_API_KEY`; all others fall back to `OPENAI_API_KEY`).
+
+MCP notes:
+
+- Only stdio MCP servers are supported.
+- MCP tools are discovered at startup via `tools/list`.
+- Each discovered tool is exposed as an OpenAI tool with local name format:
+  - `mcp_<server_name>__<tool_name>` (sanitized to `[A-Za-z0-9_]`).
+- If an MCP server fails to start or initialize, it is skipped and built-in tools still work.
 
 Examples:
 
@@ -146,6 +165,7 @@ Stdout is plain text when not a TTY, making it pipe-friendly:
 | `/help`    | Show command list                  |
 | `/clear`   | Clear conversation history         |
 | `/status`  | Show loaded skills and tools       |
+| `/mcp`     | Show MCP server and tool status    |
 | `/memory`  | Show long-term memory              |
 | `/tokens`  | Show cumulative token usage        |
 | `/history` | Print conversation history         |
@@ -189,7 +209,8 @@ src/
   context_builder.hpp/cpp  System prompt + message assembly
   memory_store.hpp/cpp     History and token persistence
   skills_loader.hpp/cpp    Skill discovery and parsing
-  tools.hpp/cpp            Built-in tools (read_file, write_file, edit_file, exec)
+  tools.hpp/cpp            Built-in tools + MCP dynamic tool registration
+  mcp_client.hpp/cpp       Stdio MCP JSON-RPC client (initialize/list/call)
 CMakeLists.txt
 ```
 

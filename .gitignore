@@ -1,0 +1,20 @@
+# Build
+build/
+cmake-build-*/
+
+# Config (contains API key)
+config.yaml
+
+# Workspace runtime data
+workspace/memory/*.json
+workspace/outputs/
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Compile commands (generated)
+compile_commands.json

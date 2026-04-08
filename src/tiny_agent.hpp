@@ -22,7 +22,8 @@ class TinyAgent {
 
   // Run one chat turn, calling emit_event for each streaming event.
   void ChatStream(const std::string& user_message,
-                  const std::function<void(const nlohmann::json&)>& emit_event);
+                  const std::function<void(const nlohmann::json&)>& emit_event,
+                  const std::function<bool()>& should_cancel = nullptr);
 
   nlohmann::json GetSkillsSummary();
   nlohmann::json GetToolsSummary() const;

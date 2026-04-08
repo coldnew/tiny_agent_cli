@@ -15,7 +15,8 @@ class AgentLoop {
 
   void Run(
       const nlohmann::json& messages,
-      const std::function<void(const nlohmann::json&)>& emit_event) const;
+      const std::function<void(const nlohmann::json&)>& emit_event,
+      const std::function<bool()>& should_cancel = nullptr) const;
 
  private:
   OpenAIStreamClient* client_;

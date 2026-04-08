@@ -92,8 +92,8 @@ static void PrintHelp() {
       << "  /history  Show conversation history\n"
       << "  /quit     Exit\n"
       << "\n"
-      << "Ctrl-C during a response cancels output (but the turn still completes internally).\n"
-      << "Ctrl-D or /quit to exit.\n";
+      << "Ctrl-C during a response cancels the current request.\n"
+      << "Ctrl-D at the prompt or /quit to exit.\n";
 }
 
 static void PrintStatus(TinyAgent& agent) {
@@ -161,6 +161,7 @@ static void PrintHistory(TinyAgent& agent) {
 // Run one user turn and print streaming events to stdout.
 static void RunTurn(TinyAgent& agent, const std::string& message) {
   bool started_text = false;
+  bool cancelled = false;
 
   agent.ChatStream(message, [&](const nlohmann::json& event) {
     if (g_interrupted) return;
@@ -189,15 +190,19 @@ static void RunTurn(TinyAgent& agent, const std::string& message) {
     } else if (type == "error") {
       if (started_text) { std::cout << "\n"; started_text = false; }
       std::cerr << color::wrap(color::red, "Error: ") << event.value("content", "") << "\n";
+      if (event.value("content", "") == "API request cancelled")
+        cancelled = true;
 
     } else if (type == "token_usage") {
       // Silently tracked; uncomment to display:
       // std::cerr << "[tokens] prompt=" << event.value("prompt_tokens",0)
       //           << " completion=" << event.value("completion_tokens",0) << "\n";
     }
-  });
+  }, []() { return g_interrupted; });
 
   if (started_text) std::cout << "\n";
+  if (g_interrupted || cancelled)
+    std::cout << color::wrap(color::dim, "(request cancelled)\n");
 }
 
 int main(int argc, char* argv[]) {
@@ -231,7 +236,7 @@ int main(int argc, char* argv[]) {
   // ---- Agent -------------------------------------------------------------
   TinyAgent* agent = nullptr;
   try {
-    agent = new TinyAgent(workspace_path, api_key, base_url, model);
+    agent = new TinyAgent(workspace_path, llm_cfg.api_key, llm_cfg.base_url, llm_cfg.model);
   } catch (const std::exception& e) {
     std::cerr << color::wrap(color::red, "Error: ") << e.what() << "\n";
     curl_global_cleanup();
@@ -260,7 +265,7 @@ int main(int argc, char* argv[]) {
               << "  model: " << color::wrap(color::cyan, llm_cfg.model)
               << "  workspace: " << workspace_path << "\n"
               << "Type " << color::wrap(color::bold, "/help") << " for commands, "
-              << color::wrap(color::bold, "Ctrl-D") << " or "
+              << color::wrap(color::bold, "Ctrl-D at prompt") << " or "
               << color::wrap(color::bold, "/quit") << " to exit.\n\n";
   }
 

@@ -7,6 +7,7 @@ namespace {
 struct StreamCtx {
   std::string line_buffer;
   std::function<void(const nlohmann::json&)> on_chunk;
+  std::function<bool()> should_cancel;
 };
 
 std::string RStripCR(std::string s) {
@@ -45,6 +46,12 @@ size_t WriteCallback(char* ptr, size_t size, size_t nmemb, void* userdata) {
   return total;
 }
 
+int ProgressCallback(void* userdata, curl_off_t, curl_off_t, curl_off_t, curl_off_t) {
+  auto* ctx = static_cast<StreamCtx*>(userdata);
+  if (!ctx || !ctx->should_cancel) return 0;
+  return ctx->should_cancel() ? 1 : 0;
+}
+
 }  // namespace
 
 OpenAIStreamClient::OpenAIStreamClient(std::string api_key, std::string base_url)
@@ -53,7 +60,8 @@ OpenAIStreamClient::OpenAIStreamClient(std::string api_key, std::string base_url
 bool OpenAIStreamClient::StreamChatCompletions(
     const nlohmann::json& request_body,
     const std::function<void(const nlohmann::json&)>& on_chunk,
-    const std::function<void(const std::string&)>& on_error) const {
+    const std::function<void(const std::string&)>& on_error,
+    const std::function<bool()>& should_cancel) const {
   CURL* curl = curl_easy_init();
   if (!curl) {
     on_error("Failed to initialize CURL");
@@ -70,6 +78,7 @@ bool OpenAIStreamClient::StreamChatCompletions(
 
   StreamCtx ctx;
   ctx.on_chunk = on_chunk;
+  ctx.should_cancel = should_cancel;
   const std::string body = request_body.dump();
 
   curl_easy_setopt(curl, CURLOPT_URL,           url.c_str());
@@ -81,6 +90,9 @@ bool OpenAIStreamClient::StreamChatCompletions(
   curl_easy_setopt(curl, CURLOPT_WRITEDATA,     &ctx);
   curl_easy_setopt(curl, CURLOPT_TIMEOUT,       0L);
   curl_easy_setopt(curl, CURLOPT_TCP_KEEPALIVE, 1L);
+  curl_easy_setopt(curl, CURLOPT_NOPROGRESS,    0L);
+  curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, ProgressCallback);
+  curl_easy_setopt(curl, CURLOPT_XFERINFODATA,  &ctx);
 
   const CURLcode code = curl_easy_perform(curl);
 
@@ -91,6 +103,10 @@ bool OpenAIStreamClient::StreamChatCompletions(
   curl_easy_cleanup(curl);
 
   if (code != CURLE_OK) {
+    if (code == CURLE_ABORTED_BY_CALLBACK) {
+      on_error("API request cancelled");
+      return false;
+    }
     on_error(std::string("API request failed: ") + curl_easy_strerror(code));
     return false;
   }

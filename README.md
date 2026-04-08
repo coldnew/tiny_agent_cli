@@ -51,14 +51,25 @@ cp config.yaml.example config.yaml
 
 ```yaml
 llm:
+  provider: "openai"   # openai | openrouter
   api_key: "sk-..."
-  model: "gpt-4o-mini"
-  base_url: "https://api.openai.com/v1"
+  model: "gpt-4o-mini" # for OpenRouter free router, use "openrouter/free" (or "free-models-router")
+  base_url: "https://api.openai.com/v1" # optional; defaults by provider
 ```
 
-Alternatively, set the `OPENAI_API_KEY` environment variable — no config file needed.
+Alternatively, set `OPENAI_API_KEY` (OpenAI/default) or `OPENROUTER_API_KEY` (OpenRouter) — no config file needed.
 
-Any OpenAI-compatible endpoint works (Ollama, vLLM, LiteLLM, etc.) by changing `base_url`.
+Provider defaults:
+
+- `openai` -> `https://api.openai.com/v1`
+- `openrouter` -> `https://openrouter.ai/api/v1`
+
+Any OpenAI-compatible endpoint still works by overriding `base_url`.
+
+OpenRouter Free Models Router support:
+
+- If `llm.provider: "openrouter"` and `llm.model: "free-models-router"`, the CLI maps it to `openrouter/free`.
+- This follows OpenRouter docs: https://openrouter.ai/docs/guides/routing/routers/free-models-router
 
 ## Usage
 
@@ -69,7 +80,7 @@ Any OpenAI-compatible endpoint works (Ollama, vLLM, LiteLLM, etc.) by changing `
 ```
 
 ```
-Tiny Agent CLI — model: gpt-4o-mini  workspace: ./workspace
+Tiny Agent CLI — provider: openai  model: gpt-4o-mini  workspace: ./workspace
 Type /help for commands, Ctrl-D or /quit to exit.
 
 You: summarise the file ./notes.txt

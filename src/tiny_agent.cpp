@@ -14,11 +14,13 @@ TinyAgent::TinyAgent(const std::string& workspace_dir,
       client_(api_key, base_url),
       loop_(&client_, &tools_, model) {
   if (api_key.empty())
-    throw std::runtime_error("No API key provided. Set OPENAI_API_KEY or add it to config.yaml.");
+    throw std::runtime_error(
+        "No API key provided. Set OPENAI_API_KEY / OPENROUTER_API_KEY or add llm.api_key to config.yaml.");
 }
 
 void TinyAgent::ChatStream(const std::string& user_message,
-                           const std::function<void(const nlohmann::json&)>& emit_event) {
+                           const std::function<void(const nlohmann::json&)>& emit_event,
+                           const std::function<bool()>& should_cancel) {
   const nlohmann::json payload = context_.BuildMessages(user_message);
 
   memory_.AddMessage({{"role", "user"}, {"content", user_message}});
@@ -38,7 +40,7 @@ void TinyAgent::ChatStream(const std::string& user_message,
       memory_.AddTokens(event.value("prompt_tokens", 0), event.value("completion_tokens", 0));
 
     emit_event(event);
-  });
+  }, should_cancel);
 }
 
 nlohmann::json TinyAgent::GetSkillsSummary() {

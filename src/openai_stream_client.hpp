@@ -16,7 +16,8 @@ class OpenAIStreamClient {
   bool StreamChatCompletions(
       const nlohmann::json& request_body,
       const std::function<void(const nlohmann::json&)>& on_chunk,
-      const std::function<void(const std::string&)>& on_error) const;
+      const std::function<void(const std::string&)>& on_error,
+      const std::function<bool()>& should_cancel = nullptr) const;
 
  private:
   std::string api_key_;

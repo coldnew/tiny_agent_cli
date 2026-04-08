@@ -6,7 +6,8 @@ AgentLoop::AgentLoop(OpenAIStreamClient* client, ToolRegistry* registry, std::st
     : client_(client), registry_(registry), model_(std::move(model)) {}
 
 void AgentLoop::Run(const nlohmann::json& messages,
-                    const std::function<void(const nlohmann::json&)>& emit_event) const {
+                    const std::function<void(const nlohmann::json&)>& emit_event,
+                    const std::function<bool()>& should_cancel) const {
   nlohmann::json current_messages = messages;
   const int max_iterations = 10;
 
@@ -87,7 +88,8 @@ void AgentLoop::Run(const nlohmann::json& messages,
             }
           }
         },
-        [&](const std::string& err) { emit_event({{"type", "error"}, {"content", err}}); });
+        [&](const std::string& err) { emit_event({{"type", "error"}, {"content", err}}); },
+        should_cancel);
 
     if (!ok) break;
 

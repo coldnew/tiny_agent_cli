@@ -59,6 +59,8 @@ llm:
 
 Alternatively, set `OPENAI_API_KEY` (default/OpenAI-compatible) or `OPENROUTER_API_KEY` (OpenRouter) — no config file needed.
 
+Config loading and resolution are centralized in `src/llmconfig.hpp/cpp` (`LoadLlmConfig("config.yaml")`), including provider defaults, model aliases, and env var fallback.
+
 Provider defaults:
 
 - `openai` -> `https://api.openai.com/v1`
@@ -180,6 +182,7 @@ Skill content here...
 ```
 src/
   main.cpp                 CLI entry point (REPL + one-shot)
+  llmconfig.hpp/cpp        LLM config file loading + provider/env resolution
   tiny_agent.hpp/cpp       Top-level agent facade
   agent_loop.hpp/cpp       Iterative model/tool loop
   openai_stream_client.hpp/cpp  Streaming HTTP client (libcurl)

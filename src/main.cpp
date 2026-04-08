@@ -1,6 +1,4 @@
 #include <csignal>
-#include <cctype>
-#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -8,8 +6,8 @@
 
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>
-#include <yaml-cpp/yaml.h>
 
+#include "llmconfig.hpp"
 #include "tiny_agent.hpp"
 
 namespace fs = std::filesystem;
@@ -35,50 +33,6 @@ static volatile bool g_interrupted = false;
 
 static void SigintHandler(int) {
   g_interrupted = true;
-}
-
-static std::string ToLower(std::string s) {
-  for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-  return s;
-}
-
-struct LlmConfig {
-  std::string provider = "openai";
-  std::string api_key;
-  std::string model    = "gpt-4o-mini";
-  std::string base_url;
-};
-
-static LlmConfig ResolveLlmConfig(const YAML::Node& root) {
-  LlmConfig cfg;
-  cfg.base_url = "https://api.openai.com/v1";
-
-  if (root["llm"]) {
-    YAML::Node llm = root["llm"];
-    if (llm["provider"]) cfg.provider = ToLower(llm["provider"].as<std::string>());
-    if (llm["api_key"])  cfg.api_key  = llm["api_key"].as<std::string>();
-    if (llm["model"])    cfg.model    = llm["model"].as<std::string>();
-    if (llm["base_url"]) cfg.base_url = llm["base_url"].as<std::string>();
-  }
-
-  // Apply provider default endpoint only when base_url wasn't explicitly overridden.
-  if (cfg.provider == "openrouter" && cfg.base_url == "https://api.openai.com/v1")
-    cfg.base_url = "https://openrouter.ai/api/v1";
-
-  // Alias from OpenRouter docs:
-  // https://openrouter.ai/docs/guides/routing/routers/free-models-router
-  if (cfg.provider == "openrouter" &&
-      (cfg.model == "free" || cfg.model == "free-models-router"))
-    cfg.model = "openrouter/free";
-
-  if (cfg.api_key.empty()) {
-    const char* env = nullptr;
-    if (cfg.provider == "openrouter") env = std::getenv("OPENROUTER_API_KEY");
-    if (!env) env = std::getenv("OPENAI_API_KEY");
-    if (env) cfg.api_key = env;
-  }
-
-  return cfg;
 }
 
 static void PrintHelp() {
@@ -215,18 +169,11 @@ int main(int argc, char* argv[]) {
 
   // ---- Load config -------------------------------------------------------
   LlmConfig llm_cfg;
-
-  const std::string config_path = "config.yaml";
-  if (fs::exists(config_path)) {
-    try {
-      YAML::Node cfg = YAML::LoadFile(config_path);
-      llm_cfg = ResolveLlmConfig(cfg);
-    } catch (const std::exception& e) {
-      std::cerr << "Failed to parse config.yaml: " << e.what() << "\n";
-      return 1;
-    }
-  } else {
-    llm_cfg = ResolveLlmConfig(YAML::Node{});
+  try {
+    llm_cfg = LoadLlmConfig("config.yaml");
+  } catch (const std::exception& e) {
+    std::cerr << "Failed to parse config.yaml: " << e.what() << "\n";
+    return 1;
   }
 
   // ---- Workspace ---------------------------------------------------------

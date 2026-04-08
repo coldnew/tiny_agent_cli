@@ -1,6 +1,6 @@
 # tiny_agent_cli
 
-A minimal AI agent that runs entirely in your terminal. No HTTP server, no web UI — just a pure CLI REPL backed by any OpenAI-compatible API.
+A minimal AI agent that runs entirely in your terminal. No HTTP server, no web UI — just a pure CLI REPL backed by OpenAI-compatible APIs (OpenAI, OpenRouter, Ollama, LM Studio).
 
 ## Features
 
@@ -51,20 +51,53 @@ cp config.yaml.example config.yaml
 
 ```yaml
 llm:
-  provider: "openai"   # openai | openrouter
-  api_key: "sk-..."
-  model: "gpt-4o-mini" # for OpenRouter free router, use "openrouter/free" (or "free-models-router")
-  base_url: "https://api.openai.com/v1" # optional; defaults by provider
+  provider: "openai"   # openai | openrouter | ollama | lmstudio
+  api_key: "sk-..."    # optional for local providers
+  model: "gpt-4o-mini"
+  # base_url: "https://api.openai.com/v1" # optional; defaults by provider
 ```
 
-Alternatively, set `OPENAI_API_KEY` (OpenAI/default) or `OPENROUTER_API_KEY` (OpenRouter) — no config file needed.
+Alternatively, set `OPENAI_API_KEY` (default/OpenAI-compatible) or `OPENROUTER_API_KEY` (OpenRouter) — no config file needed.
 
 Provider defaults:
 
 - `openai` -> `https://api.openai.com/v1`
 - `openrouter` -> `https://openrouter.ai/api/v1`
+- `ollama` -> set `base_url: "http://localhost:11434/v1"` in config
+- `lmstudio` -> set `base_url: "http://localhost:1234/v1"` in config
 
-Any OpenAI-compatible endpoint still works by overriding `base_url`.
+Any OpenAI-compatible endpoint still works by overriding `base_url`. `provider` mainly controls default URL and API key env var selection (`openrouter` checks `OPENROUTER_API_KEY`; all others fall back to `OPENAI_API_KEY`).
+
+Examples:
+
+```yaml
+# OpenAI
+llm:
+  provider: "openai"
+  api_key: "sk-..."
+  model: "gpt-4o-mini"
+
+# OpenRouter
+llm:
+  provider: "openrouter"
+  api_key: "sk-or-v1-..."
+  model: "openai/gpt-4o-mini"
+  # base_url defaults to https://openrouter.ai/api/v1
+
+# Ollama
+llm:
+  provider: "ollama"
+  api_key: ""              # not required for local Ollama
+  model: "llama3.1:8b"
+  base_url: "http://localhost:11434/v1"
+
+# LM Studio
+llm:
+  provider: "lmstudio"
+  api_key: "lm-studio"     # placeholder; some clients require non-empty
+  model: "local-model"
+  base_url: "http://localhost:1234/v1"
+```
 
 OpenRouter Free Models Router support:
 
